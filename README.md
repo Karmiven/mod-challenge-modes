@@ -1,13 +1,7 @@
 # AzerothCore Challenge Modes v2
-  ___                            _   _                      
- / _ \  Challenge Modes v2 By   | \ | |                     
-/ /_\ \ ____  ___   _ __   __ _ |  \| |  ___  __   __  __ _ 
-|  _  ||_  / / _ \ | '__| / _` || . ` | / _ \ \ \ / / / _` |
-| | | | / / | (_) || |   | (_| || |\  || (_) | \ V / | (_| |
-\_| |_//___| \___/ |_|    \__,_|\_| \_/ \___/   \_/   \__,_|
- ** v2 Revised Additions by https://github.com/AzoraNova **
-  * Original project by https://github.com/ZhengPeiRu21 *
-          AzerothCore Challenge Module v2 
+** v2 Revised Additions by https://github.com/AzoraNova ** 
+Original project by https://github.com/ZhengPeiRu21 
+
 		
 
 		
