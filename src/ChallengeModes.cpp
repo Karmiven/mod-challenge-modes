@@ -1,8 +1,66 @@
 /*
  * Copyright (C) 2016+ AzerothCore <www.azerothcore.org>, released under GNU AGPL v3 license: https://github.com/azerothcore/azerothcore-wotlk/blob/master/LICENSE-AGPL3
- */
+ * Copyright (c) 2025 AzoraNova https://github.com/AzoraNova (for changes made)
 
+  ___                            _   _                      
+ / _ \  Challenge Modes v2 By   | \ | |                     
+/ /_\ \ ____  ___   _ __   __ _ |  \| |  ___  __   __  __ _ 
+|  _  ||_  / / _ \ | '__| / _` || . ` | / _ \ \ \ / / / _` |
+| | | | / / | (_) || |   | (_| || |\  || (_) | \ V / | (_| |
+\_| |_//___| \___/ |_|    \__,_|\_| \_/ \___/   \_/   \__,_|
+ ** v2 Revised Additions by https://github.com/AzoraNova **
+  * Original project by https://github.com/ZhengPeiRu21 *
+           AzerothCore Challenge Modes v2 
+		   
+ */
+ 
+#include "SpellMgr.h"
+#include "ScriptMgr.h" 
+#include "World.h"
+#include "Player.h"
+#include "WorldSession.h"
 #include "ChallengeModes.h"
+#include "Chat.h" 
+#include "ObjectMgr.h"
+#include "Log.h"
+#include "LFGQueue.h"
+#include "RandomDeathChatter.h"
+#include "AzoraNovaCore.h"
+
+
+// Function to send a system message (similar to a raid warning) only to the player
+void SendPlayerRaidWarning(Player* player, const std::string& message)
+{
+    if (player)
+    {
+        // Send the message to the player only
+        ChatHandler(player->GetSession()).SendSysMessage("|cffff0000" + message + "|r");
+    }
+}
+
+//Function for server wide messages to been seen by all online
+void SendGlobalMessage(const std::string& message)
+{
+    ChatHandler chatHandler(NULL);  // Pass 'NULL' because we're not targeting a specific player
+    chatHandler.SendWorldText(message.c_str());  // Broadcasts the message to all players
+}
+
+// Function to stop challenge when player exceeds level 1
+void StopChallengeForPlayer(Player* player)
+{
+        // Disable all the challenges while not touching HARDCORE_DEAD Setting
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_HARDCORE, 0);  
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_SEMI_HARDCORE, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_SELF_CRAFTED, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_ITEM_QUALITY_LEVEL, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_LOW_XP_GAIN, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_VERY_LOW_XP_GAIN, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_QUEST_XP_ONLY, 0); 
+        player->UpdatePlayerSetting("mod-challenge-modes", SETTING_IRON_MAN, 0); 	
+
+        // Send a raid warning message only to the player
+        SendPlayerRaidWarning(player, "** All Challenges are over for this Character! **");
+}
 
 ChallengeModes* ChallengeModes::instance()
 {
@@ -16,7 +74,7 @@ bool ChallengeModes::challengeEnabledForPlayer(ChallengeModeSettings setting, Pl
     {
         return false;
     }
-    return player->GetPlayerSetting("mod-challenge-modes", setting).value;
+    return player->GetPlayerSetting("mod-challenge-modes", setting).value;	
 }
 
 bool ChallengeModes::challengeEnabled(ChallengeModeSettings setting) const
@@ -31,10 +89,10 @@ bool ChallengeModes::challengeEnabled(ChallengeModeSettings setting) const
             return selfCraftedEnable;
         case SETTING_ITEM_QUALITY_LEVEL:
             return itemQualityLevelEnable;
-        case SETTING_SLOW_XP_GAIN:
-            return slowXpGainEnable;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return verySlowXpGainEnable;
+        case SETTING_LOW_XP_GAIN:
+            return LowXpGainEnable;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return veryLowXpGainEnable;
         case SETTING_QUEST_XP_ONLY:
             return questXpOnlyEnable;
         case SETTING_IRON_MAN:
@@ -57,10 +115,10 @@ uint32 ChallengeModes::getDisableLevel(ChallengeModeSettings setting) const
             return selfCraftedDisableLevel;
         case SETTING_ITEM_QUALITY_LEVEL:
             return itemQualityLevelDisableLevel;
-        case SETTING_SLOW_XP_GAIN:
-            return slowXpGainDisableLevel;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return verySlowXpGainDisableLevel;
+        case SETTING_LOW_XP_GAIN:
+            return LowXpGainDisableLevel;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return veryLowXpGainDisableLevel;
         case SETTING_QUEST_XP_ONLY:
             return questXpOnlyDisableLevel;
         case SETTING_IRON_MAN:
@@ -83,10 +141,10 @@ float ChallengeModes::getXpBonusForChallenge(ChallengeModeSettings setting) cons
             return selfCraftedXpBonus;
         case SETTING_ITEM_QUALITY_LEVEL:
             return itemQualityLevelXpBonus;
-        case SETTING_SLOW_XP_GAIN:
-            return slowXpGainBonus;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return verySlowXpGainBonus;
+        case SETTING_LOW_XP_GAIN:
+            return LowXpGainBonus;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return veryLowXpGainBonus;
         case SETTING_QUEST_XP_ONLY:
             return questXpOnlyXpBonus;
         case SETTING_IRON_MAN:
@@ -109,10 +167,10 @@ const std::unordered_map<uint8, uint32> *ChallengeModes::getTitleMapForChallenge
             return &selfCraftedTitleRewards;
         case SETTING_ITEM_QUALITY_LEVEL:
             return &itemQualityLevelTitleRewards;
-        case SETTING_SLOW_XP_GAIN:
-            return &slowXpGainTitleRewards;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return &verySlowXpGainTitleRewards;
+        case SETTING_LOW_XP_GAIN:
+            return &LowXpGainTitleRewards;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return &veryLowXpGainTitleRewards;
         case SETTING_QUEST_XP_ONLY:
             return &questXpOnlyTitleRewards;
         case SETTING_IRON_MAN:
@@ -135,10 +193,10 @@ const std::unordered_map<uint8, uint32> *ChallengeModes::getTalentMapForChalleng
             return &selfCraftedTalentRewards;
         case SETTING_ITEM_QUALITY_LEVEL:
             return &itemQualityLevelTalentRewards;
-        case SETTING_SLOW_XP_GAIN:
-            return &slowXpGainTalentRewards;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return &verySlowXpGainTalentRewards;
+        case SETTING_LOW_XP_GAIN:
+            return &LowXpGainTalentRewards;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return &veryLowXpGainTalentRewards;
         case SETTING_QUEST_XP_ONLY:
             return &questXpOnlyTalentRewards;
         case SETTING_IRON_MAN:
@@ -161,10 +219,10 @@ const std::unordered_map<uint8, uint32> *ChallengeModes::getItemMapForChallenge(
             return &selfCraftedItemRewards;
         case SETTING_ITEM_QUALITY_LEVEL:
             return &itemQualityLevelItemRewards;
-        case SETTING_SLOW_XP_GAIN:
-            return &slowXpGainItemRewards;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return &verySlowXpGainItemRewards;
+        case SETTING_LOW_XP_GAIN:
+            return &LowXpGainItemRewards;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return &veryLowXpGainItemRewards;
         case SETTING_QUEST_XP_ONLY:
             return &questXpOnlyItemRewards;
         case SETTING_IRON_MAN:
@@ -187,10 +245,10 @@ uint32 ChallengeModes::getItemRewardAmount(ChallengeModeSettings setting) const
             return selfCraftedItemRewardAmount;
         case SETTING_ITEM_QUALITY_LEVEL:
             return itemQualityLevelItemRewardAmount;
-        case SETTING_SLOW_XP_GAIN:
-            return slowXpGainItemRewardAmount;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return verySlowXpGainItemRewardAmount;
+        case SETTING_LOW_XP_GAIN:
+            return LowXpGainItemRewardAmount;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return veryLowXpGainItemRewardAmount;
         case SETTING_QUEST_XP_ONLY:
             return questXpOnlyItemRewardAmount;
         case SETTING_IRON_MAN:
@@ -213,10 +271,10 @@ const std::unordered_map<uint8, uint32> *ChallengeModes::getAchievementMapForCha
             return &selfCraftedAchievementReward;
         case SETTING_ITEM_QUALITY_LEVEL:
             return &itemQualityLevelAchievementReward;
-        case SETTING_SLOW_XP_GAIN:
-            return &slowXpGainAchievementReward;
-        case SETTING_VERY_SLOW_XP_GAIN:
-            return &verySlowXpGainAchievementReward;
+        case SETTING_LOW_XP_GAIN:
+            return &LowXpGainAchievementReward;
+        case SETTING_VERY_LOW_XP_GAIN:
+            return &veryLowXpGainAchievementReward;
         case SETTING_QUEST_XP_ONLY:
             return &questXpOnlyAchievementReward;
         case SETTING_IRON_MAN:
@@ -260,9 +318,14 @@ private:
 
     static void LoadConfig()
     {
+
         sChallengeModes->challengesEnabled = sConfigMgr->GetOption<bool>("ChallengeModes.Enable", false);
+		
         if (sChallengeModes->enabled())
-        {
+        {	
+	
+	     //Load Notice of Script to Server here
+
             for (auto& [confName, rewardMap] : sChallengeModes->rewardConfigMap)
             {
                 rewardMap->clear();
@@ -273,8 +336,8 @@ private:
             sChallengeModes->semiHardcoreEnable      = sConfigMgr->GetOption<bool>("SemiHardcore.Enable", true);
             sChallengeModes->selfCraftedEnable       = sConfigMgr->GetOption<bool>("SelfCrafted.Enable", true);
             sChallengeModes->itemQualityLevelEnable  = sConfigMgr->GetOption<bool>("ItemQualityLevel.Enable", true);
-            sChallengeModes->slowXpGainEnable        = sConfigMgr->GetOption<bool>("SlowXpGain.Enable", true);
-            sChallengeModes->verySlowXpGainEnable    = sConfigMgr->GetOption<bool>("VerySlowXpGain.Enable", true);
+            sChallengeModes->LowXpGainEnable        = sConfigMgr->GetOption<bool>("LowXpGain.Enable", true);
+            sChallengeModes->veryLowXpGainEnable    = sConfigMgr->GetOption<bool>("VeryLowXpGain.Enable", true);
             sChallengeModes->questXpOnlyEnable       = sConfigMgr->GetOption<bool>("QuestXpOnly.Enable", true);
             sChallengeModes->ironManEnable           = sConfigMgr->GetOption<bool>("IronMan.Enable", true);
 
@@ -282,8 +345,8 @@ private:
             sChallengeModes->semiHardcoreDisableLevel      = sConfigMgr->GetOption<uint32>("SemiHardcore.DisableLevel", 0);
             sChallengeModes->selfCraftedDisableLevel       = sConfigMgr->GetOption<uint32>("SelfCrafted.DisableLevel", 0);
             sChallengeModes->itemQualityLevelDisableLevel  = sConfigMgr->GetOption<uint32>("ItemQualityLevel.DisableLevel", 0);
-            sChallengeModes->slowXpGainDisableLevel        = sConfigMgr->GetOption<uint32>("SlowXpGain.DisableLevel", 0);
-            sChallengeModes->verySlowXpGainDisableLevel    = sConfigMgr->GetOption<uint32>("VerySlowXpGain.DisableLevel", 0);
+            sChallengeModes->LowXpGainDisableLevel        = sConfigMgr->GetOption<uint32>("LowXpGain.DisableLevel", 0);
+            sChallengeModes->veryLowXpGainDisableLevel    = sConfigMgr->GetOption<uint32>("VeryLowXpGain.DisableLevel", 0);
             sChallengeModes->questXpOnlyDisableLevel       = sConfigMgr->GetOption<uint32>("QuestXpOnly.DisableLevel", 0);
             sChallengeModes->ironManDisableLevel           = sConfigMgr->GetOption<uint32>("IronMan.DisableLevel", 0);
 
@@ -292,16 +355,16 @@ private:
             sChallengeModes->selfCraftedXpBonus      = sConfigMgr->GetOption<float>("SelfCrafted.XPMultiplier", 1.0f);
             sChallengeModes->itemQualityLevelXpBonus = sConfigMgr->GetOption<float>("ItemQualityLevel.XPMultiplier", 1.0f);
             sChallengeModes->questXpOnlyXpBonus      = sConfigMgr->GetOption<float>("QuestXpOnly.XPMultiplier", 1.0f);
-            sChallengeModes->slowXpGainBonus         = sConfigMgr->GetOption<float>("SlowXpGain.XPMultiplier", 0.50f);
-            sChallengeModes->verySlowXpGainBonus     = sConfigMgr->GetOption<float>("VerySlowXpGain.XPMultiplier", 0.25f);
+            sChallengeModes->LowXpGainBonus         = sConfigMgr->GetOption<float>("LowXpGain.XPMultiplier", 0.50f);
+            sChallengeModes->veryLowXpGainBonus     = sConfigMgr->GetOption<float>("VeryLowXpGain.XPMultiplier", 0.25f);
             sChallengeModes->ironManXpBonus          = sConfigMgr->GetOption<float>("IronMan.XPMultiplier", 1.0f);
 
             sChallengeModes->hardcoreItemRewardAmount         = sConfigMgr->GetOption<uint32>("Hardcore.ItemRewardAmount", 1);
             sChallengeModes->semiHardcoreItemRewardAmount     = sConfigMgr->GetOption<uint32>("SemiHardcore.ItemRewardAmount", 1);
             sChallengeModes->selfCraftedItemRewardAmount      = sConfigMgr->GetOption<uint32>("SelfCrafted.ItemRewardAmount", 1);
             sChallengeModes->itemQualityLevelItemRewardAmount = sConfigMgr->GetOption<uint32>("ItemQualityLevel.ItemRewardAmount", 1);
-            sChallengeModes->slowXpGainItemRewardAmount       = sConfigMgr->GetOption<uint32>("SlowXpGain.ItemRewardAmount", 1);
-            sChallengeModes->verySlowXpGainItemRewardAmount   = sConfigMgr->GetOption<uint32>("VerySlowXpGain.ItemRewardAmount", 1);
+            sChallengeModes->LowXpGainItemRewardAmount       = sConfigMgr->GetOption<uint32>("LowXpGain.ItemRewardAmount", 1);
+            sChallengeModes->veryLowXpGainItemRewardAmount   = sConfigMgr->GetOption<uint32>("VeryLowXpGain.ItemRewardAmount", 1);
             sChallengeModes->questXpOnlyItemRewardAmount      = sConfigMgr->GetOption<uint32>("QuestXpOnly.ItemRewardAmount", 1);
             sChallengeModes->ironManItemRewardAmount          = sConfigMgr->GetOption<uint32>("IronMan.ItemRewardAmount", 1);
 
@@ -309,17 +372,28 @@ private:
             LoadStringToMap(sChallengeModes->semiHardcoreAchievementReward, sConfigMgr->GetOption<std::string>("SemiHardcore.AchievementReward", ""));
             LoadStringToMap(sChallengeModes->selfCraftedAchievementReward, sConfigMgr->GetOption<std::string>("SelfCrafted.AchievementReward", ""));
             LoadStringToMap(sChallengeModes->itemQualityLevelAchievementReward, sConfigMgr->GetOption<std::string>("ItemQualityLevel.AchievementReward", ""));
-            LoadStringToMap(sChallengeModes->slowXpGainAchievementReward, sConfigMgr->GetOption<std::string>("SlowXpGain.AchievementReward", ""));
-            LoadStringToMap(sChallengeModes->verySlowXpGainAchievementReward, sConfigMgr->GetOption<std::string>("VerySlowXpGain.AchievementReward", ""));
+            LoadStringToMap(sChallengeModes->LowXpGainAchievementReward, sConfigMgr->GetOption<std::string>("LowXpGain.AchievementReward", ""));
+            LoadStringToMap(sChallengeModes->veryLowXpGainAchievementReward, sConfigMgr->GetOption<std::string>("VeryLowXpGain.AchievementReward", ""));
             LoadStringToMap(sChallengeModes->questXpOnlyAchievementReward, sConfigMgr->GetOption<std::string>("QuestXpOnly.AchievementReward", ""));
             LoadStringToMap(sChallengeModes->ironManAchievementReward, sConfigMgr->GetOption<std::string>("IronMan.AchievementReward", ""));
         }
     }
+	
 };
+
 
 class ChallengeMode : public PlayerScript
 {
+
+// PlayerScript Duel Function Handler
+void OnDuelRequest(Player* challenger, Player* target) override
+{
+    DuelHandler duelHandler;
+    duelHandler.OnDuelRequest(challenger, target);
+}
+	
 public:
+
     explicit ChallengeMode(const char *scriptName,
                            ChallengeModeSettings settingName)
             : PlayerScript(scriptName), settingName(settingName)
@@ -395,12 +469,15 @@ void OnLevelChanged(Player* player, uint8 /*oldlevel*/) override
     if (sChallengeModes->getDisableLevel(settingName) && sChallengeModes->getDisableLevel(settingName) <= level)
     {
         player->UpdatePlayerSetting("mod-challenge-modes", settingName, 0);
+		StopChallengeForPlayer(player); // Just incase above fails
     }
 }
 
 private:
     ChallengeModeSettings settingName;
+
 };
+
 
 class ChallengeMode_Hardcore : public ChallengeMode
 {
@@ -408,54 +485,129 @@ public:
     ChallengeMode_Hardcore() : ChallengeMode("ChallengeMode_Hardcore", SETTING_HARDCORE) {}
 
     void OnLogin(Player* player) override
+    {		
+    
+	// Reworked login checks
+    bool hardcoreEnabled = sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player);
+
+    if (hardcoreEnabled)
     {
-        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player) || !sChallengeModes->challengeEnabledForPlayer(HARDCORE_DEAD, player))
-        {
+        // Check if the player is dead
+		if (player->GetPlayerSetting("mod-challenge-modes", HARDCORE_DEAD).value == 1)
+        {			
+			SendPlayerRaidWarning(player, "Challenger: Hardcore Challenge Failed with this Character!");            
             return;
         }
-        player->KillPlayer();
-        player->GetSession()->KickPlayer("Hardcore character died");
+        else
+        {
+            // If the player is alive but in Hardcore mode, send a warning message
+            SendPlayerRaidWarning(player, "Challenger: Hardcore Challenge is Active on this Character!");
+        }
     }
-
-    void OnPlayerReleasedGhost(Player* player) override
-    {
+      
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
         {
             return;
         }
-        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
-        player->GetSession()->KickPlayer("Hardcore character died");
-    }
-
-    void OnPVPKill(Player* /*killer*/, Player* killed) override
+    // If Hardcore is enabled and player dead check only trigger if bugs out above
+	if (player->GetPlayerSetting("mod-challenge-modes", HARDCORE_DEAD).value == 1)	
     {
-        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, killed))
-        {
-            return;
-        }
-        killed->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
+		SendPlayerRaidWarning(player, "Challenger: This Hardcore Character has perished, no resurrection, no second chances!");
+		//add kick here if needed
     }
 
-    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* killed) override
-    {
-        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, killed))
-        {
-            return;
-        }
-        killed->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
-    }
+ }
 
+ //DEATHS
+    // HardCore Death Events using RandomDeathChatter.h scripts	
+    // Resurrection Checks Needed for Hard Core Player checks
     void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
         {
             return;
         }
-        // A better implementation is to not allow the resurrect but this will need a new hook added first
-        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
-        player->KillPlayer();
-        player->GetSession()->KickPlayer("Hardcore character died");
+        // Keeping Player Dead if bugs out the Kick player 
+        player->KillPlayer(); 
+        player->GetSession()->KickPlayer("The HardCore Character has perished no resurrection, no second chances!");
+    }	
+	// Released Player Check
+    void OnPlayerReleasedGhost(Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
+        {
+            return;
+        }
+        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1); // To be safe it's on
+		SendPlayerRaidWarning(player, "Challenger: This Hardcore Character has fallen! Their journey ends, and now they are but a mere ghost of their former self!!");		
+        //player->GetSession()->KickPlayer("The HardCore Character has perished no resurrection, no second chances!");
     }
+	
+    // NPC Death Events	
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
+        {
+            return;
+        }
+
+        // Calling Random HardCore Deaths Chatter Script
+        RandomDeathMessageHard deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomHardDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+
+        // Send the global Random message to all players
+        RandomDeathMessageHCWorld deathMessageGenhc;
+        std::string randomWorldDeathMessage = deathMessageGenhc.GetRandomHCWorldDieMessage();	
+		std::string messagehc = "Challenger " + player->GetName()+ " " + randomWorldDeathMessage;
+        SendGlobalMessage(messagehc);
+
+		// Send Fail to Character to end the one life
+        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
+	
+		}
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+	
+	    // Send the global Random message to all players
+        RandomDeathMessageHCWorld deathMessageGenhc;
+        std::string randomWorldDeathMessage = deathMessageGenhc.GetRandomHCWorldDieMessage();	
+		std::string messagehc = "Challenger " + killed->GetName()+ " " + randomWorldDeathMessage;
+        SendGlobalMessage(messagehc);
+
+		// Send Fail to Character to end the one life
+        killed->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
+	
+ }		
+//END DEATHS
+
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
@@ -466,6 +618,20 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+	
+
+	// Block battleground queue for Hardcore players
+    bool CanEnterBattleground(Player* player)
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
+        {
+            // Prevent Hardcore players from entering any battlegrounds
+            SendPlayerRaidWarning(player, ">> You cannot participate in Battlegrounds while in Hardcore mode!");
+            return false;  // Return false to block entry
+        }
+        return true;  // Allow entry for non-Hardcore players
+    }
+	
 };
 
 class ChallengeMode_SemiHardcore : public ChallengeMode
@@ -473,25 +639,84 @@ class ChallengeMode_SemiHardcore : public ChallengeMode
 public:
     ChallengeMode_SemiHardcore() : ChallengeMode("ChallengeMode_SemiHardcore", SETTING_SEMI_HARDCORE) {}
 
+     void OnLogin(Player* player) override
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
+        {
+        SendPlayerRaidWarning(player, "Challenger: The Semi-Hardcore Challenge is currently active on this character!");
+        }
+		
+    }
+    
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+		
+		//Remove Items Equipped as extra punishment
+		RemoveEquippedItemsAndResetMoney(player);
+    }
+
+    // NPC Death Events
     void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
         {
             return;
         }
-        for (uint8 i = 0; i < EQUIPMENT_SLOT_END; ++i)
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	    
+		
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, killed))
         {
-            if (Item* pItem = player->GetItemByPos(INVENTORY_SLOT_BAG_0, i))
-            {
-                if (pItem->GetTemplate() && !pItem->IsEquipped())
-                    continue;
-                uint8 slot = pItem->GetSlot();
-                ChatHandler(player->GetSession()).PSendSysMessage("|cffDA70D6You have lost your |cffffffff|Hitem:%d:0:0:0:0:0:0:0:0|h[%s]|h|r", pItem->GetEntry(), pItem->GetTemplate()->Name1.c_str());
-                player->DestroyItem(INVENTORY_SLOT_BAG_0, slot, true);
-            }
-        }
-        player->SetMoney(0);
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
     }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
@@ -502,12 +727,35 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+
+	// Block battleground queue for Hardcore players
+    bool CanEnterBattleground(Player* player)
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
+        {
+            // Prevent Hardcore players from entering any battlegrounds
+            SendPlayerRaidWarning(player, ">> You cannot participate in Battlegrounds while in Hardcore mode!");
+            return false;  // Return false to block entry
+        }
+        return true;  // Allow entry for non-Hardcore players
+    }
+	
 };
 
 class ChallengeMode_SelfCrafted : public ChallengeMode
 {
 public:
     ChallengeMode_SelfCrafted() : ChallengeMode("ChallengeMode_SelfCrafted", SETTING_SELF_CRAFTED) {}
+
+     void OnLogin(Player* player) override
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
+        {
+        SendPlayerRaidWarning(player, "Challenger: The Self-Crafted Challenge is currently active on this character!");
+
+        }
+		
+    }
 
     bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
     {
@@ -531,20 +779,120 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+
+    }
+
+    // NPC Death Events
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
+        {
+            return;
+        }
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	    
+		
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking	
+
+	
 };
+
 
 class ChallengeMode_ItemQualityLevel : public ChallengeMode
 {
 public:
     ChallengeMode_ItemQualityLevel() : ChallengeMode("ChallengeMode_ItemQualityLevel", SETTING_ITEM_QUALITY_LEVEL) {}
 
+    void OnLogin(Player* player) override
+    {
+
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
+        {
+            SendPlayerRaidWarning(player, "Challenger: The Quality Level Challenge is currently active on this character!");
+
+      //Check Player for non challenge Items Equipped removes them if found	  
+	  if (CheckItemsInBags(player)) 
+	  { 
+          RemoveEquippedItemsNow(player); 
+	  }	
+
+      }		
+    }
+
     bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
         {
-            return true;
+            return true;  // If challenge is not enabled, allow equipping any item.
         }
-        return pItem->GetTemplate()->Quality <= ITEM_QUALITY_NORMAL;
+
+        // Allow only items with quality up to ITEM_QUALITY_NORMAL (white and green items)
+        if (pItem->GetTemplate()->Quality > ITEM_QUALITY_NORMAL)
+        {
+            return false; // Block items with quality higher than normal (blue, purple, etc.)
+        }
+
+        // Allow crafted items only if their quality is under ITEM_QUALITY_NORMAL
+        if (IsCraftedItem(pItem) && pItem->GetTemplate()->Quality > ITEM_QUALITY_NORMAL)
+        {
+            return false; // Block crafted items that are above normal quality.
+        }
+
+        return true; // Allow the item if it passes all checks.
     }
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
@@ -556,13 +904,99 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+
+private:
+    // Helper to check if the item is crafted
+    bool IsCraftedItem(Item* pItem)
+    {
+        return pItem->GetTemplate()->HasSignature(); // Check if the item has a signature, indicating it's crafted
+    }
+
+	// When player dies in Challenge Events Trigger Here
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+
+    }
+
+    // NPC Death Events
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
+        {
+            return;
+        }
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	    
+		
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking
+ 
 };
 
-class ChallengeMode_SlowXpGain : public ChallengeMode
+class ChallengeMode_LowXpGain : public ChallengeMode
 {
 public:
-    ChallengeMode_SlowXpGain() : ChallengeMode("ChallengeMode_SlowXpGain", SETTING_SLOW_XP_GAIN) {}
+    ChallengeMode_LowXpGain() : ChallengeMode("ChallengeMode_LowXpGain", SETTING_LOW_XP_GAIN) {}
 
+     void OnLogin(Player* player) override
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
+        {
+        SendPlayerRaidWarning(player, "Challenger: The Half XP Challenge is currently active on this character!");
+        }
+		
+    }
+	
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
@@ -572,12 +1006,90 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+	
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+		
+    }
+
+    // NPC Death Events
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
+        {
+            return;
+        }
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking
+
+	
 };
 
-class ChallengeMode_VerySlowXpGain : public ChallengeMode
+class ChallengeMode_VeryLowXpGain : public ChallengeMode
 {
 public:
-    ChallengeMode_VerySlowXpGain() : ChallengeMode("ChallengeMode_VerySlowXpGain", SETTING_VERY_SLOW_XP_GAIN) {}
+    ChallengeMode_VeryLowXpGain() : ChallengeMode("ChallengeMode_VeryLowXpGain", SETTING_VERY_LOW_XP_GAIN) {}
+
+     void OnLogin(Player* player) override
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
+        {
+        SendPlayerRaidWarning(player, "Challenger: The Low XP Only Challenge is currently active on this character!");
+        }
+		
+    }
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
@@ -588,12 +1100,90 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+
+    }
+
+    // NPC Death Events
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
+        {
+            return;
+        }
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	    
+		
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking	
+	
 };
 
 class ChallengeMode_QuestXpOnly : public ChallengeMode
 {
 public:
     ChallengeMode_QuestXpOnly() : ChallengeMode("ChallengeMode_QuestXpOnly", SETTING_QUEST_XP_ONLY) {}
+
+     void OnLogin(Player* player) override
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
+        {
+        SendPlayerRaidWarning(player, "Challenger: The Quest XP Only Challenge is currently active on this character!");
+        }
+		
+    }
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
@@ -619,6 +1209,75 @@ public:
     {
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
+
+	// Tracking Player Resurrect Events
+    void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
+        {
+            return;
+        }
+		
+		//Cast Debuff on player
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+		
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageRevival deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomRevivalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);				
+
+    }
+
+    // NPC Death Events
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
+        {
+            return;
+        }
+
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageNormal deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomNormalMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+	    
+		
+		}
+		        
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+ }		
+ // END Death Event Tracking	
+	
 };
 
 class ChallengeMode_IronMan : public ChallengeMode
@@ -626,15 +1285,136 @@ class ChallengeMode_IronMan : public ChallengeMode
 public:
     ChallengeMode_IronMan() : ChallengeMode("ChallengeMode_IronMan", SETTING_IRON_MAN) {}
 
+    void OnLogin(Player* player) override
+    {		
+    
+	// Reworked login checks 
+    bool IronManEnabled = sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player);
+
+    if (IronManEnabled)
+    {
+        // Check if the player is dead
+		if (player->GetPlayerSetting("mod-challenge-modes", HARDCORE_DEAD).value == 1)
+        {			
+			SendPlayerRaidWarning(player, "Challenger: Iron Man Challenge Failed with this Character!");            
+            return;
+        }
+        else
+        {
+            // If the player is alive but in Iron Man mode, send a warning message
+            SendPlayerRaidWarning(player, "Challenger: Iron Man Challenge is Active on this Character!");
+			
+      //Check Player for non challenge Items Equipped removes them if found	  
+	  if ((CheckItemsInBags(player)) || (HasEquippedItemWithEnchantment(player))) 
+	  { 
+          RemoveEquippedItemsNow(player); 
+	  }	
+	  
+        }
+    }
+      
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            return;
+        }
+    // If Iron Man is enabled and player dead check only trigger if bugs out above
+	if (player->GetPlayerSetting("mod-challenge-modes", HARDCORE_DEAD).value == 1)	
+    {
+		SendPlayerRaidWarning(player, "Challenger: This Iron Man Character has perished, no resurrection, no second chances!");
+		//add kick here if needed
+    }
+
+ }
+	
+ //DEATHS
+    // Iron Man Death Events using RandomDeathChatter.h scripts	
+    // Resurrection Checks Needed for Iron Man Player checks
     void OnPlayerResurrect(Player* player, float /*restore_percent*/, bool /*applySickness*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
             return;
         }
-        // A better implementation is to not allow the resurrect but this will need a new hook added first
-        player->KillPlayer();
+        // Keeping Player Dead if bugs out the Kick player 
+        player->KillPlayer(); 
+        player->GetSession()->KickPlayer("The Iron Man Character has perished no resurrection, no second chances!");
+    }	
+	// Released Player Check
+    void OnPlayerReleasedGhost(Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            return;
+        }
+        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1); // To be safe it's on
+		SendPlayerRaidWarning(player, "Challenger: This Iron Man Character has fallen! Their journey ends, and now they are but a mere ghost of their former self!!");		
+        //player->GetSession()->KickPlayer("The Iron Man Character has perished no resurrection, no second chances!");
     }
+	
+    // NPC Death Events	
+    void OnPlayerKilledByCreature(Creature* /*killer*/, Player* player) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            return;
+        }
+
+        // Calling Random Iron Man Deaths Chatter Script
+        RandomDeathMessageIron deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomIronDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(player, randomDeathMessage);	
+
+        // Send the global Random message to all players
+        RandomDeathMessageIronWorld deathMessageGenhc;
+        std::string randomWorldDeathMessage = deathMessageGenhc.GetRandomHCIronDieMessage();	
+		std::string messagehc = "Challenger " + player->GetName()+ " " + randomWorldDeathMessage;
+        SendGlobalMessage(messagehc);
+
+		// Send Fail to Character to end the one life
+        player->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
+	
+		}
+	// PVP Death Events
+    void OnPVPKill(Player* killer, Player* killed) override
+    {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, killed))
+        {
+            return;
+        }	
+	
+    // Check if the killer is self-inflicted kill (Picks up Non PVP Events a workaround)
+    if (killer == killed)
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessageSelf deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomSelfDieMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+    else
+    {
+        // Calling Random Deaths Chatter Script
+        RandomDeathMessagePVP deathMessageGen;
+        std::string randomDeathMessage = deathMessageGen.GetRandomPVPMessage();
+		
+        // Send the random message to the player   
+		SendPlayerRaidWarning(killed, randomDeathMessage);		
+    }
+	
+	    // Send the global Random message to all players
+        RandomDeathMessageHeroPVP deathMessageGenIr;
+        std::string randomWorldDeathMessageIr = deathMessageGenIr.GetRandomHeroPVPWorldDieMessage();	
+		std::string messageIr = "Challenger " + killed->GetName()+ " " + randomWorldDeathMessageIr;
+        SendGlobalMessage(messageIr);
+
+		// Send Fail to Character to end the one life
+        killed->UpdatePlayerSetting("mod-challenge-modes", HARDCORE_DEAD, 1);
+	
+ }		
+//END DEATHS
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
@@ -719,6 +1499,7 @@ public:
         {
             return true;
         }
+		
         // Do not allow using elixir, potion, or flask
         if (proto->Class == ITEM_CLASS_CONSUMABLE &&
                 (proto->SubClass == ITEM_SUBCLASS_POTION ||
@@ -727,6 +1508,7 @@ public:
         {
             return false;
         }
+		
         // Do not allow food that gives food buffs
         if (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_SUBCLASS_FOOD)
         {
@@ -747,7 +1529,8 @@ public:
         }
         return true;
     }
-
+    
+	// Block/Allow Grouping Invite Check 
     bool CanGroupInvite(Player* player, std::string& /*membername*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
@@ -756,7 +1539,8 @@ public:
         }
         return false;
     }
-
+    
+	// Block/Allow Grouping Check 
     bool CanGroupAccept(Player* player, Group* /*group*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
@@ -766,15 +1550,92 @@ public:
         return false;
     }
 
+	// Block battleground queue for Hardcore players
+    bool CanEnterBattleground(Player* player)
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            // Prevent Hardcore players from entering any battlegrounds
+            SendPlayerRaidWarning(player, ">> You cannot participate in Battlegrounds while in Hardcore mode!");
+            return false;  // Return false to block entry
+        }
+        return true;  // Allow entry for non-Hardcore players
+    }
+	
+    // Stop honor rewards for Hardcore players
+    void OnHonorReward(Player* player, uint32& honorPoints, uint32& bonusHonor) 
+    {
+        if (sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            // Cancel honor reward and set points to zero for Hardcore players
+            honorPoints = 0;
+            bonusHonor = 0;
+            SendPlayerRaidWarning(player, ">> No Honor rewards will be granted!");
+        }
+    }
+
+    // Block reputation gain for Hardcore players
+    void OnReputationChanged(Player* player, int32& repAmount, bool /*forced*/)
+    {
+    if (sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+    {
+        repAmount = 0;
+        SendPlayerRaidWarning(player, ">> Reputation gain is disabled!");
+    }
+  }
+
 };
 
 class gobject_challenge_modes : public GameObjectScript
 {
+
 private:
-    static bool playerSettingEnabled(Player* player, uint8 settingIndex)
+// Integrating into playerSettingEnabled system and running checks
+static bool playerSettingEnabled(Player* player, uint8 settingIndex)
+{
+    if (!player)
+        return false;
+
+    // Retrieve the setting value (ensure it's valid)
+    bool settingValue = player->GetPlayerSetting("mod-challenge-modes", settingIndex).value;
+
+    if (settingValue)
     {
-        return player->GetPlayerSetting("mod-challenge-modes", settingIndex).value;
+        uint8 playerLevel = player->GetLevel();
+
+        // Check if the player has any active challenge modes
+        bool hasActiveChallenge = false;
+
+        // Checking for various challenge modes
+        const uint8 challengeSettings[] = {
+            SETTING_HARDCORE, SETTING_SEMI_HARDCORE, SETTING_SELF_CRAFTED,
+            SETTING_ITEM_QUALITY_LEVEL, SETTING_LOW_XP_GAIN, SETTING_VERY_LOW_XP_GAIN,
+            SETTING_QUEST_XP_ONLY, SETTING_IRON_MAN
+        };
+
+        // Cast the uint8 (setting) to the appropriate enum ChallengeModeSettings
+        for (uint8 setting : challengeSettings)
+        {
+            if (sChallengeModes->challengeEnabledForPlayer(static_cast<ChallengeModeSettings>(setting), player))
+            {
+                hasActiveChallenge = true;
+                break;
+            }
+        }
+
+        // Check if the player is a Death Knight and above level 55
+        bool isDeathKnightOver55 = (player->getClass() == CLASS_DEATH_KNIGHT) && (playerLevel > 55);
+        
+        // If player’s level is greater than 1 and no active challenge, stop challenge access (excluding high-level Death Knights)
+        if (playerLevel > 1 && !hasActiveChallenge && !isDeathKnightOver55)
+        {
+            StopChallengeForPlayer(player);
+        }
     }
+
+    return settingValue;
+}
+
 
 public:
     gobject_challenge_modes() : GameObjectScript("gobject_challenge_modes") { }
@@ -793,48 +1654,82 @@ public:
         }
     };
 
-    bool OnGossipHello(Player* player, GameObject* go) override
+//New menu System
+bool OnGossipHello(Player* player, GameObject* go) override
+{   
+    // Check for items and buffs; bypass if Death Knight
+    if (player->getClass() != CLASS_DEATH_KNIGHT && (CheckItemsInBags(player) || HasEquippedItemWithEnchantment(player)))
     {
-        if (sChallengeModes->challengeEnabled(SETTING_HARDCORE) && !playerSettingEnabled(player, SETTING_HARDCORE) && !playerSettingEnabled(player, SETTING_SEMI_HARDCORE))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Hardcore Mode", 0, SETTING_HARDCORE);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_SEMI_HARDCORE) && !playerSettingEnabled(player, SETTING_HARDCORE) && !playerSettingEnabled(player, SETTING_SEMI_HARDCORE))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Semi-Hardcore Mode", 0, SETTING_SEMI_HARDCORE);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_SELF_CRAFTED) && !playerSettingEnabled(player, SETTING_SELF_CRAFTED) && !playerSettingEnabled(player, SETTING_IRON_MAN))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Self-Crafted Mode", 0, SETTING_SELF_CRAFTED);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_ITEM_QUALITY_LEVEL) && !playerSettingEnabled(player, SETTING_ITEM_QUALITY_LEVEL))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Low Quality Item Mode", 0, SETTING_ITEM_QUALITY_LEVEL);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_SLOW_XP_GAIN) && !playerSettingEnabled(player, SETTING_SLOW_XP_GAIN) && !playerSettingEnabled(player, SETTING_VERY_SLOW_XP_GAIN))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Slow XP Mode", 0, SETTING_SLOW_XP_GAIN);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_VERY_SLOW_XP_GAIN) && !playerSettingEnabled(player, SETTING_SLOW_XP_GAIN) && !playerSettingEnabled(player, SETTING_VERY_SLOW_XP_GAIN))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Very Slow XP Mode", 0, SETTING_VERY_SLOW_XP_GAIN);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_QUEST_XP_ONLY) && !playerSettingEnabled(player, SETTING_QUEST_XP_ONLY))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Quest XP Only Mode", 0, SETTING_QUEST_XP_ONLY);
-        }
-        if (sChallengeModes->challengeEnabled(SETTING_IRON_MAN) && !playerSettingEnabled(player, SETTING_IRON_MAN) && !playerSettingEnabled(player, SETTING_SELF_CRAFTED))
-        {
-            AddGossipItemFor(player, GOSSIP_ICON_CHAT, "Enable Iron Man Mode", 0, SETTING_IRON_MAN);
-        }
-        SendGossipMenuFor(player, 12669, go->GetGUID());
+        ChatHandler(player->GetSession()).PSendSysMessage("Your items do not meet the requirements for the Challenge Shrine. You must be in beginner items to qualify!");
+    }
+
+    // Check if any challenge is already enabled for the player (this hides other challenges if one is active)
+    bool challengeActive = sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player) ||
+                           sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player) ||
+                           (player->getClass() != CLASS_DEATH_KNIGHT && (CheckItemsInBags(player) || HasEquippedItemWithEnchantment(player)));
+
+    // If a challenge is active, do nothing
+    if (challengeActive)
+    {
         return true;
     }
 
+    // Function to add challenge items to the menu
+    auto addChallengeMenuItem = [player](ChallengeModeSettings setting, const std::string& name) {
+        if (sChallengeModes->challengeEnabled(setting) && !playerSettingEnabled(player, setting))
+        {
+            AddGossipItemFor(player, GOSSIP_ICON_CHAT, name, 0, setting);
+        }
+    };
+
+    // If the player is a Death Knight, show only specific challenges
+    if (player->getClass() == CLASS_DEATH_KNIGHT)
+    {
+        addChallengeMenuItem(SETTING_HARDCORE, "Enable Hardcore Challenge");
+        addChallengeMenuItem(SETTING_SEMI_HARDCORE, "Enable Semi-Hardcore Challenge");
+        addChallengeMenuItem(SETTING_LOW_XP_GAIN, "Enable Half XP Challenge");
+        addChallengeMenuItem(SETTING_VERY_LOW_XP_GAIN, "Enable Very Low XP Challenge");
+        addChallengeMenuItem(SETTING_QUEST_XP_ONLY, "Enable Quest XP Only Challenge");
+    }
+    else
+    {
+        // For normal players, display all challenges
+        addChallengeMenuItem(SETTING_HARDCORE, "Enable Hardcore Challenge");
+        addChallengeMenuItem(SETTING_SEMI_HARDCORE, "Enable Semi-Hardcore Challenge");
+        addChallengeMenuItem(SETTING_SELF_CRAFTED, "Enable Self Crafted Challenge");
+        addChallengeMenuItem(SETTING_ITEM_QUALITY_LEVEL, "Enable Quality Level Challenge");
+        addChallengeMenuItem(SETTING_LOW_XP_GAIN, "Enable Half XP Challenge");
+        addChallengeMenuItem(SETTING_VERY_LOW_XP_GAIN, "Enable Very Low XP Challenge");
+        addChallengeMenuItem(SETTING_QUEST_XP_ONLY, "Enable Quest XP Only Challenge");
+        addChallengeMenuItem(SETTING_IRON_MAN, "Enable Iron Man Challenge");
+    }
+
+    // Display the menu
+    SendGossipMenuFor(player, 12669, go->GetGUID());
+    return true;
+}
+//End menu
+    
+	// We check player for cheating on taking up a challenge befor they start!
+	
     bool OnGossipSelect(Player* player, GameObject* /*go*/, uint32 /*sender*/, uint32 action) override
     {
         player->UpdatePlayerSetting("mod-challenge-modes", action, 1);
-        ChatHandler(player->GetSession()).PSendSysMessage("Challenge enabled.");
+        ChatHandler(player->GetSession()).PSendSysMessage("Challenge Initiated Good Luck Hero!");
+
+        // Send the global Random message to all players
+        RandomShrineMessageWorld StartMessageChal;
+        std::string randomWorldShrineMessage = StartMessageChal.RandomShrineMessageWorldStart();	
+		std::string messageShrineStart = "Challenger " + player->GetName()+ " " + randomWorldShrineMessage;
+        SendGlobalMessage(messageShrineStart);
+
+	
         CloseGossipMenuFor(player);
         return true;
     }
@@ -854,8 +1749,8 @@ void AddSC_mod_challenge_modes()
     new ChallengeMode_SemiHardcore();
     new ChallengeMode_SelfCrafted();
     new ChallengeMode_ItemQualityLevel();
-    new ChallengeMode_SlowXpGain();
-    new ChallengeMode_VerySlowXpGain();
+    new ChallengeMode_LowXpGain();
+    new ChallengeMode_VeryLowXpGain();
     new ChallengeMode_QuestXpOnly();
     new ChallengeMode_IronMan();
 }
