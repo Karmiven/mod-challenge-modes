@@ -1,4 +1,4 @@
-# Contributing to challenge-modes-azora
+# Contributing to mod-challenge-modes
 
 Thank you for considering contributing to challenge-modes-azora! Your contributions are vital to the continued success and growth of this project.
 
