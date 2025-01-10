@@ -26,7 +26,8 @@
 #include "LFGQueue.h"
 #include "RandomDeathChatter.h"
 #include "AzoraNovaCore.h"
-
+#include "ItemTemplate.h"
+#include <set>  // Include for std::set
 
 // Function to send a system message (similar to a raid warning) only to the player
 void SendPlayerRaidWarning(Player* player, const std::string& message)
@@ -611,11 +612,19 @@ public:
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }		
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }		
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 	
@@ -720,11 +729,19 @@ public:
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 
@@ -757,26 +774,56 @@ public:
 		
     }
 
-    bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
+
+// Updated CanEquipItem to allow items by id and quest Class items use
+bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
+{
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
+        {
+            return true;  // If challenge is not enabled, allow equipping any item.
+        }
+		
+    // List of specific quest item IDs, if needed here are fishing rods and mine picks
+    static const std::set<uint32> questItemIds = {12225,45120,6256,6365,6366,6367,13544,39371,7297,2901,23875,23877,23876,41615,37358}; // Replace with real quest item IDs
+
+    // Check if the item is of class ITEM_CLASS_QUEST (instead of checking ITEM_FLAG_QUESTITEM)
+    if (pItem->GetTemplate()->Class == ITEM_CLASS_QUEST) 
+    {
+        return true; // It's a quest item by class, allow equipping
+    }
+
+    // Check if the item is part of the item list (manual items)
+    if (questItemIds.find(pItem->GetTemplate()->ItemId) != questItemIds.end())
+    {
+        return true; // It's a quest item from your list, allow equipping
+    }
+
+    // Check if the item has a valid creator GUID (crafting check)
+    if (pItem->GetGuidValue(ITEM_FIELD_CREATOR) == player->GetGUID())
+    {
+        return true; // It's a crafted item created by this player, allow equipping
+    }
+
+    // If the item is not a quest item, not in the manual list, and not crafted by the player, disallow equipping
+    return false;
+}
+	
+	
+    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
         {
-            return true;
-        }
-        if (!pItem->GetTemplate()->HasSignature())
-        {
-            return false;
-        }
-        return pItem->GetGuidValue(ITEM_FIELD_CREATOR) == player->GetGUID();
-    }
-
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
-    {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 
@@ -880,6 +927,21 @@ public:
             return true;  // If challenge is not enabled, allow equipping any item.
         }
 
+    // List of specific quest item IDs, if needed here are fishing rods and mine picks
+    static const std::set<uint32> questItemIds = {12225,45120,6256,6365,6366,6367,13544,39371,7297,2901,23875,23877,23876,41615,37358}; // Replace with real quest item IDs
+
+    // Check if the item is of class ITEM_CLASS_QUEST (instead of checking ITEM_FLAG_QUESTITEM)
+    if (pItem->GetTemplate()->Class == ITEM_CLASS_QUEST) 
+    {
+        return true; // It's a quest item by class, allow equipping
+    }
+
+    // Check if the item is part of the item list (manual items)
+    if (questItemIds.find(pItem->GetTemplate()->ItemId) != questItemIds.end())
+    {
+        return true; // It's a quest item from your list, allow equipping
+    }
+
         // Allow only items with quality up to ITEM_QUALITY_NORMAL (white and green items)
         if (pItem->GetTemplate()->Quality > ITEM_QUALITY_NORMAL)
         {
@@ -897,11 +959,19 @@ public:
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }				
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }				
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 
@@ -999,11 +1069,19 @@ public:
 	
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 	
@@ -1093,11 +1171,19 @@ public:
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }		
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }		
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 
@@ -1207,6 +1293,10 @@ public:
 
     void OnLevelChanged(Player* player, uint8 oldlevel) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }				
         ChallengeMode::OnLevelChanged(player, oldlevel);
     }
 
@@ -1418,6 +1508,10 @@ public:
 
     void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
+        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
+        {
+            return;  // If challenge is not enabled, allow equipping any item.
+        }			
         ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
     }
 
@@ -1446,7 +1540,24 @@ public:
         {
             return true;
         }
+
+    // List of specific quest item IDs, if needed here are fishing rods and mine picks
+    static const std::set<uint32> questItemIds = {12225,45120,6256,6365,6366,6367,13544,39371,7297,2901,23875,23877,23876,41615,37358}; // Replace with real quest item IDs
+
+    // Check if the item is of class ITEM_CLASS_QUEST (instead of checking ITEM_FLAG_QUESTITEM)
+    if (pItem->GetTemplate()->Class == ITEM_CLASS_QUEST) 
+    {
+        return true; // It's a quest item by class, allow equipping
+    }
+
+    // Check if the item is part of the item list (manual items)
+    if (questItemIds.find(pItem->GetTemplate()->ItemId) != questItemIds.end())
+    {
+        return true; // It's a quest item from your list, allow equipping
+    }
+		
         return pItem->GetTemplate()->Quality <= ITEM_QUALITY_NORMAL;
+	
     }
 
     bool CanApplyEnchantment(Player* player, Item* /*item*/, EnchantmentSlot /*slot*/, bool /*apply*/, bool /*apply_dur*/, bool /*ignore_condition*/) override
@@ -1493,43 +1604,67 @@ public:
         }
     }
 
-    bool CanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*result*/) override
+// Updated Canuse - still needs work this is a hacky work around
+bool CanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*result*/) override
+{
+    // Ensure that Iron Man Challenge is enabled for the player
+    if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
     {
-        if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
-        {
-            return true;
-        }
-		
-        // Do not allow using elixir, potion, or flask
-        if (proto->Class == ITEM_CLASS_CONSUMABLE &&
-                (proto->SubClass == ITEM_SUBCLASS_POTION ||
-                proto->SubClass == ITEM_SUBCLASS_ELIXIR ||
-                proto->SubClass == ITEM_SUBCLASS_FLASK))
-        {
-            return false;
-        }
-		
-        // Do not allow food that gives food buffs
-        if (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_SUBCLASS_FOOD)
-        {
-            for (const auto & Spell : proto->Spells)
-            {
-                SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(Spell.SpellId);
-                if (!spellInfo)
-                    continue;
+        return true;
+    }
 
-                for (uint8 i = 0; i < 3; i++)
+    // Block potions, elixirs, and flasks if detected
+    if (proto->Class == ITEM_CLASS_CONSUMABLE &&
+        (proto->SubClass == ITEM_SUBCLASS_POTION ||    // Potion subclass
+         proto->SubClass == ITEM_SUBCLASS_ELIXIR ||    // Elixir subclass
+         proto->SubClass == ITEM_SUBCLASS_FLASK))      // Flask subclass
+    {
+		// We check player then trap player in IceBlock and send warning or you can use the kick part if want
+		// this is a work around for now code won't detect on use of potions, elixirs, and flasks fully
+		player->CastStop();
+        SendPlayerRaidWarning(player, "Challenger: You cannot use potions, elixirs, or flasks in Iron Man.");
+	    player->RemoveAllAuras(); // Remove the buff if any
+		player->AddAura(15007, player); // Resurrection Sickness as punishment
+        player->CastSpell(player, 65918, true);  // For now we knockdown player for 10sec
+		
+		// player->GetSession()->KickPlayer("You cannot use potions, elixirs, or flasks in Iron Man"); // Or just kick
+        return false;  
+    }
+
+    // Do not allow food that provides buffs
+    if (proto->Class == ITEM_CLASS_CONSUMABLE && proto->SubClass == ITEM_SUBCLASS_FOOD)
+    {
+        for (const auto & Spell : proto->Spells)
+        {
+            SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(Spell.SpellId);
+            if (!spellInfo)
+                continue;
+
+            // Check all effects for buffs that apply to the player
+            for (uint8 i = 0; i < 3; i++)
+            {
+                if (spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_PERIODIC_TRIGGER_SPELL || 
+                    spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_HEALING ||
+                    spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_MOD_STAT)
                 {
-                    if (spellInfo->Effects[i].ApplyAuraName == SPELL_AURA_PERIODIC_TRIGGER_SPELL)
-                    {
-                        return false;
-                    }
+		           // We check player then trap player in IceBlock and send warning or you can use the kick part if want
+		           // this is a work around for now code won't detect on use of potions, elixirs, and flasks fully
+				   player->CastStop();
+                   SendPlayerRaidWarning(player, "Challenger: You cannot use food that provides buffs in Iron Man.");
+				   player->RemoveAllAuras(); // Remove the buff if any
+				   player->AddAura(15007, player); // Resurrection Sickness as punishment
+                   player->CastSpell(player, 65918, true);  // For now we knockdown player for 10sec
+				   
+					//player->GetSession()->KickPlayer("You cannot use food that provides buffs in Iron Man"); // Or just kick
+                    return false;
                 }
             }
         }
-        return true;
     }
-    
+
+    return true; // Allow other items
+}
+  
 	// Block/Allow Grouping Invite Check 
     bool CanGroupInvite(Player* player, std::string& /*membername*/) override
     {
