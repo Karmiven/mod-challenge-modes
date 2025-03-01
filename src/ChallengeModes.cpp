@@ -387,7 +387,7 @@ class ChallengeMode : public PlayerScript
 {
 
 // PlayerScript Duel Function Handler
-void OnDuelRequest(Player* challenger, Player* target) override
+void OnPlayerDuelRequest(Player* challenger, Player* target) override
 {
     DuelHandler duelHandler;
     duelHandler.OnDuelRequest(challenger, target);
@@ -405,7 +405,7 @@ public:
         return (mapToCheck->find(key) != mapToCheck->end());
     }
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(settingName, player))
         {
@@ -414,7 +414,7 @@ public:
         amount *= sChallengeModes->getXpBonusForChallenge(settingName);
     }
 
-void OnLevelChanged(Player* player, uint8 /*oldlevel*/) override
+void OnPlayerLevelChanged(Player* player, uint8 /*oldlevel*/) override
 {
     if (!sChallengeModes->challengeEnabledForPlayer(settingName, player))
     {
@@ -485,7 +485,7 @@ class ChallengeMode_Hardcore : public ChallengeMode
 public:
     ChallengeMode_Hardcore() : ChallengeMode("ChallengeMode_Hardcore", SETTING_HARDCORE) {}
 
-    void OnLogin(Player* player) override
+    void OnPlayerLogin(Player* player) override
     {		
     
 	// Reworked login checks
@@ -570,7 +570,7 @@ public:
 	
 		}
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, killed))
         {
@@ -610,22 +610,22 @@ public:
 //END DEATHS
 
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }		
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_HARDCORE, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }		
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 	
 
@@ -648,7 +648,7 @@ class ChallengeMode_SemiHardcore : public ChallengeMode
 public:
     ChallengeMode_SemiHardcore() : ChallengeMode("ChallengeMode_SemiHardcore", SETTING_SEMI_HARDCORE) {}
 
-     void OnLogin(Player* player) override
+     void OnPlayerLogin(Player* player) override
     {
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
         {
@@ -698,7 +698,7 @@ public:
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, killed))
         {
@@ -727,22 +727,22 @@ public:
  }		
  // END Death Event Tracking
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SEMI_HARDCORE, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
 	// Block battleground queue for Hardcore players
@@ -764,7 +764,7 @@ class ChallengeMode_SelfCrafted : public ChallengeMode
 public:
     ChallengeMode_SelfCrafted() : ChallengeMode("ChallengeMode_SelfCrafted", SETTING_SELF_CRAFTED) {}
 
-     void OnLogin(Player* player) override
+     void OnPlayerLogin(Player* player) override
     {
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
         {
@@ -775,8 +775,8 @@ public:
     }
 
 
-// Updated CanEquipItem to allow items by id and quest Class items use
-bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
+// Updated OnPlayerCanEquipItem to allow items by id and quest Class items use
+bool OnPlayerCanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
 {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
         {
@@ -809,22 +809,22 @@ bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem,
 }
 	
 	
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
 	// Tracking Player Resurrect Events
@@ -866,7 +866,7 @@ bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem,
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_SELF_CRAFTED, killed))
         {
@@ -904,7 +904,7 @@ class ChallengeMode_ItemQualityLevel : public ChallengeMode
 public:
     ChallengeMode_ItemQualityLevel() : ChallengeMode("ChallengeMode_ItemQualityLevel", SETTING_ITEM_QUALITY_LEVEL) {}
 
-    void OnLogin(Player* player) override
+    void OnPlayerLogin(Player* player) override
     {
 
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
@@ -920,7 +920,7 @@ public:
       }		
     }
 
-    bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
+    bool OnPlayerCanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
         {
@@ -957,22 +957,22 @@ public:
         return true; // Allow the item if it passes all checks.
     }
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }				
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }				
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
 private:
@@ -1022,7 +1022,7 @@ private:
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_ITEM_QUALITY_LEVEL, killed))
         {
@@ -1058,7 +1058,7 @@ class ChallengeMode_LowXpGain : public ChallengeMode
 public:
     ChallengeMode_LowXpGain() : ChallengeMode("ChallengeMode_LowXpGain", SETTING_LOW_XP_GAIN) {}
 
-     void OnLogin(Player* player) override
+     void OnPlayerLogin(Player* player) override
     {
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
         {
@@ -1067,22 +1067,22 @@ public:
 		
     }
 	
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 	
 	// Tracking Player Resurrect Events
@@ -1123,7 +1123,7 @@ public:
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_LOW_XP_GAIN, killed))
         {
@@ -1160,7 +1160,7 @@ class ChallengeMode_VeryLowXpGain : public ChallengeMode
 public:
     ChallengeMode_VeryLowXpGain() : ChallengeMode("ChallengeMode_VeryLowXpGain", SETTING_VERY_LOW_XP_GAIN) {}
 
-     void OnLogin(Player* player) override
+     void OnPlayerLogin(Player* player) override
     {
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
         {
@@ -1169,22 +1169,22 @@ public:
 		
     }
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }		
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }		
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
 	// Tracking Player Resurrect Events
@@ -1226,7 +1226,7 @@ public:
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_VERY_LOW_XP_GAIN, killed))
         {
@@ -1262,7 +1262,7 @@ class ChallengeMode_QuestXpOnly : public ChallengeMode
 public:
     ChallengeMode_QuestXpOnly() : ChallengeMode("ChallengeMode_QuestXpOnly", SETTING_QUEST_XP_ONLY) {}
 
-     void OnLogin(Player* player) override
+     void OnPlayerLogin(Player* player) override
     {
         if (sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
         {
@@ -1271,7 +1271,7 @@ public:
 		
     }
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
         {
@@ -1287,17 +1287,17 @@ public:
         }
         else
         {
-            ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+            ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
         }
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }				
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
 	// Tracking Player Resurrect Events
@@ -1339,7 +1339,7 @@ public:
 		}
 		        
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_QUEST_XP_ONLY, killed))
         {
@@ -1375,7 +1375,7 @@ class ChallengeMode_IronMan : public ChallengeMode
 public:
     ChallengeMode_IronMan() : ChallengeMode("ChallengeMode_IronMan", SETTING_IRON_MAN) {}
 
-    void OnLogin(Player* player) override
+    void OnPlayerLogin(Player* player) override
     {		
     
 	// Reworked login checks 
@@ -1467,7 +1467,7 @@ public:
 	
 		}
 	// PVP Death Events
-    void OnPVPKill(Player* killer, Player* killed) override
+    void OnPlayerPVPKill(Player* killer, Player* killed) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, killed))
         {
@@ -1506,26 +1506,26 @@ public:
  }		
 //END DEATHS
 
-    void OnGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
+    void OnPlayerGiveXP(Player* player, uint32& amount, Unit* victim, uint8 xpSource) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
             return;  // If challenge is not enabled, allow equipping any item.
         }			
-        ChallengeMode::OnGiveXP(player, amount, victim, xpSource);
+        ChallengeMode::OnPlayerGiveXP(player, amount, victim, xpSource);
     }
 
-    void OnLevelChanged(Player* player, uint8 oldlevel) override
+    void OnPlayerLevelChanged(Player* player, uint8 oldlevel) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
             return;
         }
         player->SetFreeTalentPoints(0); // Remove all talent points
-        ChallengeMode::OnLevelChanged(player, oldlevel);
+        ChallengeMode::OnPlayerLevelChanged(player, oldlevel);
     }
 
-    void OnTalentsReset(Player* player, bool /*noCost*/) override
+    void OnPlayerTalentsReset(Player* player, bool /*noCost*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
@@ -1534,7 +1534,7 @@ public:
         player->SetFreeTalentPoints(0); // Remove all talent points
     }
 
-    bool CanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
+    bool OnPlayerCanEquipItem(Player* player, uint8 /*slot*/, uint16& /*dest*/, Item* pItem, bool /*swap*/, bool /*not_loading*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
@@ -1560,7 +1560,7 @@ public:
 	
     }
 
-    bool CanApplyEnchantment(Player* player, Item* /*item*/, EnchantmentSlot /*slot*/, bool /*apply*/, bool /*apply_dur*/, bool /*ignore_condition*/) override
+    bool OnPlayerCanApplyEnchantment(Player* player, Item* /*item*/, EnchantmentSlot /*slot*/, bool /*apply*/, bool /*apply_dur*/, bool /*ignore_condition*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
@@ -1570,7 +1570,7 @@ public:
         return false;
     }
 
-    void OnLearnSpell(Player* player, uint32 spellID) override
+    void OnPlayerLearnSpell(Player* player, uint32 spellID) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
@@ -1605,7 +1605,7 @@ public:
     }
 
 // Updated Canuse - still needs work this is a hacky work around
-bool CanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*result*/) override
+bool OnPlayerCanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*result*/) override
 {
     // Ensure that Iron Man Challenge is enabled for the player
     if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
@@ -1666,7 +1666,7 @@ bool CanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*re
 }
   
 	// Block/Allow Grouping Invite Check 
-    bool CanGroupInvite(Player* player, std::string& /*membername*/) override
+    bool OnPlayerCanGroupInvite(Player* player, std::string& /*membername*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
@@ -1676,7 +1676,7 @@ bool CanUseItem(Player* player, ItemTemplate const* proto, InventoryResult& /*re
     }
     
 	// Block/Allow Grouping Check 
-    bool CanGroupAccept(Player* player, Group* /*group*/) override
+    bool OnPlayerCanGroupAccept(Player* player, Group* /*group*/) override
     {
         if (!sChallengeModes->challengeEnabledForPlayer(SETTING_IRON_MAN, player))
         {
